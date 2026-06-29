@@ -1,0 +1,122 @@
+name: AutoContentAI — Daily Pipeline
+
+on:
+  schedule:
+    # Short-form at 12:00 UTC daily
+    - cron: '0 12 * * *'
+    # Long-form at 14:00 UTC daily
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      video_format:
+        description: 'Video format'
+        required: true
+        default: 'short_form'
+        type: choice
+        options: [short_form, long_form]
+      niche:
+        description: 'Niche override (optional)'
+        required: false
+        type: string
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -1
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create .env file
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          META_LONG_LIVED_TOKEN: ${{ secrets.META_LONG_LIVED_TOKEN }}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID: ${{ secrets.INSTAGRAM_BUSINESS_ACCOUNT_ID }}
+          FACEBOOK_PAGE_ID: ${{ secrets.FACEBOOK_PAGE_ID }}
+          AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
+        run: |
+          cat > .env << 'ENVEOF'
+          ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+          ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+          ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID}
+          STABILITY_API_KEY=${STABILITY_API_KEY}
+          OPENAI_API_KEY=${OPENAI_API_KEY}
+          PIXABAY_API_KEY=${PIXABAY_API_KEY}
+          YOUTUBE_CLIENT_ID=${YOUTUBE_CLIENT_ID}
+          YOUTUBE_CLIENT_SECRET=${YOUTUBE_CLIENT_SECRET}
+          YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN}
+          YOUTUBE_CHANNEL_ID=${YOUTUBE_CHANNEL_ID}
+          META_APP_ID=${META_APP_ID}
+          META_APP_SECRET=${META_APP_SECRET}
+          META_LONG_LIVED_TOKEN=${META_LONG_LIVED_TOKEN}
+          INSTAGRAM_BUSINESS_ACCOUNT_ID=${INSTAGRAM_BUSINESS_ACCOUNT_ID}
+          FACEBOOK_PAGE_ID=${FACEBOOK_PAGE_ID}
+          AMAZON_AFFILIATE_TAG=${AMAZON_AFFILIATE_TAG}
+          DATABASE_URL=sqlite:///data/autocontent.db
+          DEFAULT_VIDEO_FORMAT=short_form
+          VIDEOS_PER_DAY=1
+          LOG_LEVEL=INFO
+          ENVEOF
+          # Substitute actual env vars
+          envsubst < .env > .env.tmp && mv .env.tmp .env
+
+      - name: Create data directories
+        run: mkdir -p data/videos data/thumbnails data/audio data/scripts data/logs
+
+      - name: Run Pipeline
+        run: |
+          FORMAT="${{ github.event.inputs.video_format || 'short_form' }}"
+          NICHE="${{ github.event.inputs.niche || '' }}"
+          python << PYEOF
+          import sys
+          from core.pipeline import run_pipeline
+          from core.database import init_db
+
+          init_db()
+          result = run_pipeline(
+              video_format="${FORMAT}",
+              niche="${NICHE}" or None,
+          )
+          print(f"Pipeline result: {result}")
+          if result.get('status') == 'failed':
+              print(f"ERROR: {result.get('error')}")
+              sys.exit(1)
+          print("SUCCESS! Published to:")
+          for platform, url in result.get('published', {}).items():
+              print(f"  {platform}: {url}")
+          PYEOF
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-logs-${{ github.run_id }}
+          path: data/logs/
+          retention-days: 7
