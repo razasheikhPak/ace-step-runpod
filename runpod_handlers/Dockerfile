@@ -1,26 +1,14 @@
-# ACE-Step 1.0 RunPod Serverless Worker
-# Version stack confirmed from ace-step/ACE-Step official requirements:
-#   Python 3.10, CUDA 12.6, PyTorch (cu126), diffusers>=0.36.0
+# ACE-Step RunPod Serverless Worker
+# Uses RunPod's pre-cached PyTorch 2.4 + CUDA 12.4 base (avoids CUDA driver mismatch)
+# diffusers>=0.36.0 fixes the PEP 604 annotation infer_schema crash on PyTorch 2.4
 
-FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.10 python3.10-dev python3-pip \
-    git ffmpeg libsndfile1 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Ensure python3.10 is the default python3
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
-    python3 -m pip install --upgrade pip
+FROM runpod/pytorch:2.4.0-py3.10-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /app
 
-# PyTorch cu126 — the officially tested stack for ACE-Step
-RUN pip3 install --no-cache-dir \
-    torch torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/cu126
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ffmpeg libsndfile1 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install ACE-Step from GitHub (PyPI 0.1.0 sdist is broken — missing requirements.txt)
 # Install other deps first so ace-step doesn't override pinned versions
