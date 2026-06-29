@@ -1,12 +1,11 @@
 # ACE-Step 1.5 RunPod Serverless Worker
-# Uses RunPod's pre-cached PyTorch runtime image (~5GB vs 15GB for devel)
-# Pre-cached on RunPod workers = fast cold starts
+# PyTorch 2.4 + CUDA 12.4 devel image — flash-attn compiled from source at build time
 
 FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /app
 
-# System deps (minimal)
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git libsndfile1 ffmpeg && \
     rm -rf /var/lib/apt/lists/*
@@ -22,6 +21,11 @@ RUN pip install --no-cache-dir \
 RUN pip install --no-cache-dir "ace-step" 2>/dev/null || \
     pip install --no-cache-dir "acestep" 2>/dev/null || \
     pip install --no-cache-dir "git+https://github.com/ace-step/ACE-Step.git"
+
+# Compile flash-attn from source matching this image's exact CUDA + PyTorch versions.
+# --no-build-isolation uses the system PyTorch/CUDA headers already in this image.
+# This takes ~20 min but only runs once at Docker build time (not at inference time).
+RUN pip install --no-cache-dir flash-attn --no-build-isolation
 
 # Copy handler and model downloader
 COPY ace_step_handler.py /app/handler.py
