@@ -1,35 +1,30 @@
 # ACE-Step 1.5 RunPod Serverless Worker
-# Build:  docker build -t your_dockerhub/ace-step-handler:latest -f Dockerfile .
-# Push:   docker push your_dockerhub/ace-step-handler:latest
+# Uses RunPod's pre-cached PyTorch runtime image (~5GB vs 15GB for devel)
+# Pre-cached on RunPod workers = fast cold starts
 
-FROM runpod/pytorch:2.2.0-py3.10-cuda12.1.1-devel-ubuntu22.04
+FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
 
 WORKDIR /app
 
-# System deps
+# System deps (minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg libsndfile1 && \
+    git libsndfile1 ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
-# Python deps — pin runpod SDK + audio libs
+# Core Python deps
 RUN pip install --no-cache-dir \
-    runpod==1.7.9 \
-    soundfile \
-    librosa \
-    numpy \
-    huggingface_hub
+    "runpod==1.7.9" \
+    "soundfile" \
+    "librosa" \
+    "huggingface_hub"
 
-# ACE-Step 1.5 — install from PyPI (preferred) or GitHub
-RUN pip install --no-cache-dir acestep || \
+# ACE-Step — try PyPI first, fall back to GitHub
+RUN pip install --no-cache-dir "ace-step" 2>/dev/null || \
+    pip install --no-cache-dir "acestep" 2>/dev/null || \
     pip install --no-cache-dir "git+https://github.com/ace-step/ACE-Step.git"
 
-# Copy handler
+# Copy handler and model downloader
 COPY ace_step_handler.py /app/handler.py
-
-# Model download script — run this ONCE against your network volume:
-#   docker run --rm -v /your/volume:/runpod-volume \
-#     -e HF_TOKEN=your_token \
-#     your_dockerhub/ace-step-handler:latest python /app/download_model.py
 COPY download_model.py /app/download_model.py
 
 CMD ["python", "-u", "/app/handler.py"]
