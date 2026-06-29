@@ -1,28 +1,39 @@
-# ACE-Step 1.5 RunPod Serverless Worker
+# ACE-Step 1.0 RunPod Serverless Worker
+# Version stack confirmed from ace-step/ACE-Step official requirements:
+#   Python 3.10, CUDA 12.6, PyTorch (cu126), diffusers>=0.36.0
 
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.6.0-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 python3.10-dev python3-pip \
+    git ffmpeg libsndfile1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Ensure python3.10 is the default python3
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1 && \
+    python3 -m pip install --upgrade pip
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git libsndfile1 ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
+# PyTorch cu126 — the officially tested stack for ACE-Step
+RUN pip3 install --no-cache-dir \
+    torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu126
 
-RUN pip install --no-cache-dir \
-    "runpod==1.7.9" \
-    "soundfile" \
+# ACE-Step dependencies (pinned to confirmed working versions)
+RUN pip3 install --no-cache-dir \
+    "ace-step" \
+    "diffusers>=0.36.0" \
+    "transformers==4.50.0" \
+    "accelerate==1.6.0" \
+    "soundfile==0.13.1" \
     "librosa" \
-    "huggingface_hub"
-
-# Install ACE-Step, then remove flash-attn — its version has a PyTorch 2.4
-# schema-inference incompatibility. PyTorch 2.4 ships excellent native SDPA
-# which ACE-Step/diffusers falls back to automatically when flash-attn is absent.
-RUN pip install --no-cache-dir "ace-step" 2>/dev/null || \
-    pip install --no-cache-dir "acestep" 2>/dev/null || \
-    pip install --no-cache-dir "git+https://github.com/ace-step/ACE-Step.git"
-RUN pip uninstall -y flash-attn 2>/dev/null; true
+    "huggingface_hub" \
+    "runpod==1.7.9"
 
 COPY ace_step_handler.py /app/handler.py
 COPY download_model.py /app/download_model.py
 
-CMD ["python", "-u", "/app/handler.py"]
+CMD ["python3", "-u", "/app/handler.py"]
