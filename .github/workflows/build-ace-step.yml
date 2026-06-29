@@ -31,4 +31,4 @@ jobs:
           context: ./runpod_handlers
           file: ./runpod_handlers/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/ace-step:latest
+          tags: ghcr.io/razasheikhpak/ace-step:latest
