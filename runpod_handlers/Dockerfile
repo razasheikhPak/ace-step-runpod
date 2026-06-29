@@ -2,7 +2,7 @@
 # Uses RunPod's pre-cached PyTorch runtime image (~5GB vs 15GB for devel)
 # Pre-cached on RunPod workers = fast cold starts
 
-FROM runpod/pytorch:2.1.0-py3.10-cuda11.8.0-devel-ubuntu22.04
+FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
 
 WORKDIR /app
 

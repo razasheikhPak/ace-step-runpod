@@ -40,17 +40,6 @@ def _load_pipeline():
         return _pipeline
 
     import torch
-    # ACE-Step calls torch.xpu.* which requires PyTorch >= 2.4.
-    # Patch with a catch-all stub so ACE-Step falls back to CUDA gracefully.
-    if not hasattr(torch, "xpu"):
-        class _XpuStub:
-            def is_available(self): return False
-            def device_count(self): return 0
-            def empty_cache(self): pass
-            def __getattr__(self, name):
-                return lambda *args, **kwargs: None
-        torch.xpu = _XpuStub()
-
     from acestep.pipeline_ace_step import ACEStepPipeline
 
     model_path = os.environ.get("MODEL_PATH", "ACE-Step/ACE-Step-v1.5-3.5B")
