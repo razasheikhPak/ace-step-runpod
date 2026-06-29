@@ -22,9 +22,9 @@ RUN pip3 install --no-cache-dir \
     torch torchvision torchaudio \
     --index-url https://download.pytorch.org/whl/cu126
 
-# ACE-Step dependencies (pinned to confirmed working versions)
+# Install ACE-Step from GitHub (PyPI 0.1.0 sdist is broken — missing requirements.txt)
+# Install other deps first so ace-step doesn't override pinned versions
 RUN pip3 install --no-cache-dir \
-    "ace-step" \
     "diffusers>=0.36.0" \
     "transformers==4.50.0" \
     "accelerate==1.6.0" \
@@ -32,6 +32,8 @@ RUN pip3 install --no-cache-dir \
     "librosa" \
     "huggingface_hub" \
     "runpod==1.7.9"
+
+RUN pip3 install --no-cache-dir "git+https://github.com/ace-step/ACE-Step.git"
 
 COPY ace_step_handler.py /app/handler.py
 COPY download_model.py /app/download_model.py
